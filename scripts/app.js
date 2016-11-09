@@ -55,7 +55,10 @@
       app.selectedCities = [];
     }
     app.getForecast(key, label);
-    app.selectedCities.push({key: key, label: label});
+    app.selectedCities.push({
+      key: key,
+      label: label
+    });
     app.saveSelectedCities();
     app.toggleAddDialog(false);
   });
@@ -168,8 +171,25 @@
   app.getForecast = function(key, label) {
     var statement = 'select * from weather.forecast where woeid=' + key;
     var url = 'https://query.yahooapis.com/v1/public/yql?format=json&q=' +
-        statement;
-    // TODO add cache logic here
+      statement;
+    if ('caches' in window) {
+      /*
+       * Check if the service worker has already cached this city's weather
+       * data. If the service worker has the data, then display the cached
+       * data while the app fetches the latest data.
+       */
+      caches.match(url).then(function(response) {
+        if (response) {
+          response.json().then(function updateFromCache(json) {
+            var results = json.query.results;
+            results.key = key;
+            results.label = label;
+            results.created = json.query.created;
+            app.updateForecastCard(results);
+          });
+        }
+      });
+    }
 
     // Fetch the latest data.
     var request = new XMLHttpRequest();
@@ -200,7 +220,6 @@
     });
   };
 
-  // TODO add saveSelectedCities function here
   // Save list of cities to localStorage.
   app.saveSelectedCities = function() {
     var selectedCities = JSON.stringify(app.selectedCities);
@@ -292,15 +311,35 @@
           temp: 56,
           code: 24
         },
-        forecast: [
-          {code: 44, high: 86, low: 70},
-          {code: 44, high: 94, low: 73},
-          {code: 4, high: 95, low: 78},
-          {code: 24, high: 75, low: 89},
-          {code: 24, high: 89, low: 77},
-          {code: 44, high: 92, low: 79},
-          {code: 44, high: 89, low: 77}
-        ]
+        forecast: [{
+          code: 44,
+          high: 86,
+          low: 70
+        }, {
+          code: 44,
+          high: 94,
+          low: 73
+        }, {
+          code: 4,
+          high: 95,
+          low: 78
+        }, {
+          code: 24,
+          high: 75,
+          low: 89
+        }, {
+          code: 24,
+          high: 89,
+          low: 77
+        }, {
+          code: 44,
+          high: 92,
+          low: 79
+        }, {
+          code: 44,
+          high: 89,
+          low: 77
+        }]
       },
       atmosphere: {
         humidity: 56
@@ -331,15 +370,18 @@
      * that data into the page.
      */
     app.updateForecastCard(initialWeatherForecast);
-    app.selectedCities = [
-      {key: initialWeatherForecast.key, label: initialWeatherForecast.label}
-    ];
+    app.selectedCities = [{
+      key: initialWeatherForecast.key,
+      label: initialWeatherForecast.label
+    }];
     app.saveSelectedCities();
   }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('./service-worker.js')
-      .then(function() { console.log('Service Worker Registered'); });
+      .then(function() {
+        console.log('Service Worker Registered');
+      });
   }
 })();
